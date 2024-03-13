@@ -1,7 +1,11 @@
 from tabulate import tabulate
 import numpy as np
 import easygui
+import PIL
+import cv2
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 from matplotlib.widgets import RadioButtons
 from matplotlib.axes import Axes
 from matplotlib.widgets import TextBox
@@ -11,35 +15,39 @@ from ImageCalculator import ImageCalculator
 from matplotlib.widgets import Button
 from matplotlib.offsetbox import (OffsetImage, AnnotationBbox)
 import matplotlib.image as image
+from matplotlib.backend_tools import ToolBase, ToolToggleBase
 
 class InterHist:
     def __init__(self, file_path):
+        self.fpath = file_path
         self.image_calculator = ImageCalculator(file_path)
-        self.im = image.imread(file_path)
+        #self.im = image.imread(file_path)
         #Creating subplot mosaic
         self.fig, self.ax = plt.subplot_mosaic(
             [
-                ['main', 'scale'],
-                ['main', 'bounds'],
-                ['main', 'display'],
-                ['main', 'overlays']
+                ['main', 'scale', 'image1'],
+                ['main', 'bounds', 'image2'],
+                ['main', 'display', 'image3'],
+                ['main', 'overlays', 'image4']
             ],
-            width_ratios=[4, 1],
+            width_ratios=[4, 1.25, 0.75],
             layout='constrained',
         )
-        imagebox = OffsetImage(self.im, zoom = 0.15)
-        a = int(self.image_calculator.max)
-        b = int(self.image_calculator.y_limit)-200
-        self.displayed_image = ab = AnnotationBbox(imagebox, (a, b), frameon = False)
-        self.ax['main'].add_artist(ab)
+        #imagebox = OffsetImage(self.im, zoom = 0.15)
+        #a = int(self.image_calculator.max)
+        #b = int(self.image_calculator.y_limit)-200
+        #self.displayed_image = ab = AnnotationBbox(imagebox, (a, b), frameon = False)
+        #self.ax['main'].add_artist(ab)
         self.__color_list = [(0.18, 0.451, 0.569), (0.569, 0.18, 0.275), (0.239, 0.569, 0.18), (0.769, 0.455, 0.102), (0.569, 0.361, 0.671), (0.761, 0.039, 0.039), (0.761, 0.627, 0.039), (0.027, 0.071, 0.329), (0.51, 0.729, 0.137), (0.91, 0.059, 0.835)]
         self.num_plots = 0
         self.extract_labels()
         self.create_main_hist()
+        self.create_image_subplot()
         self.create_scale_subplot()
         self.create_range_subplot()
         self.create_calculation_subplot()
         self.create_overlay_subplot()
+        self.submit_lower(self.left_bound)
         plt.ion()
         plt.show(block=True)
 
@@ -48,10 +56,25 @@ class InterHist:
         self.left_bound = self.image_calculator.min
         self.right_bound = self.image_calculator.max
         self.last_clicked = self.right_bound
-        self.intensity_sum = self.image_calculator.calculate_total_intensity()
+        self.intensity_sum = self.image_calculator.calculate_total_intensity(calculation_range=(0, 256))
+        print(self.intensity_sum)
         self.size = self.image_calculator.height*self.image_calculator.width
         self.peak = self.image_calculator.y_limit
         self.radio_background = 'lightgoldenrodyellow'
+    
+    def create_image_subplot(self):
+        self.ax['image1'].set_title('Image 1', fontdict={'fontsize': mpl.rcParams['axes.titlesize'], 'fontweight': mpl.rcParams['axes.titleweight'], 'color': 'tab:blue', 'verticalalignment': 'baseline', 'horizontalalignment': 'center'})
+        self.ax['image1'].set_xticks([])
+        self.ax['image1'].set_yticks([])
+        img_arr = cv2.imread(self.fpath)
+        self.ax['image1'].imshow(img_arr)
+        image_ax_list = ['image2', 'image3', 'image4', "Image 2", "Image 3", "Image 4"]
+        for i in range(0, 3):
+            self.ax[image_ax_list[i]].set_title(image_ax_list[i+3])
+            self.ax[image_ax_list[i]].set_xticks([])
+            self.ax[image_ax_list[i]].set_yticks([])
+            self.ax[image_ax_list[i]].set_visible(False)
+        self.image_axs = image_ax_list
     
     def create_main_hist(self):
         #Creating Main Histogram
@@ -62,8 +85,8 @@ class InterHist:
          1 # transparency
          )
         l = self.ax['main'].bar(list(data.keys()), data.values(), color=color, width=1.1, label='main')
-        self.ax['main'].set_xlim(-20, 255+20)
-        xpos=np.arange(295)
+        self.ax['main'].set_xlim(-10, 255+10)
+        xpos=np.arange(275)
 
         #Setting Plot Y-Axis Scale
         self.ax['main'].set_yscale('linear')
@@ -110,7 +133,7 @@ class InterHist:
         self.t3 = self.ax['display'].text(0.055, .54, f'Entropy on range: {round(self.image_calculator.calculate_entropy_value(), 3)}')
         self.t4 = self.ax['display'].text(0.055, .39, f'Mean on range: {round(self.image_calculator.calculate_mean(), 3)}')
         self.t5 = self.ax['display'].text(0.055, .24, f'RMS contrast on range: {round(self.image_calculator.get_rms_contrast(), 3)}')
-        self.t6 = self.ax['display'].text(0.055, .09, f'Total intensity on range:{self.intensity_sum}')
+        self.t6 = self.ax['display'].text(0.055, .09, f'Total intensity on range: {self.intensity_sum}')
    
     def create_overlay_subplot(self):
         self.ax['overlays'].set_facecolor(self.radio_background)
@@ -161,6 +184,7 @@ class InterHist:
     def submit_ylim(self, text):
         if(text==''):
             self.ax['main'].autoscale()
+            self.text3.set_val(self.image_calculator.y_limit)
         else:
             self.ax['main'].set_ylim(0, int(text))
 
@@ -217,6 +241,17 @@ class InterHist:
             self.inp2.set_visible(False)
             newt = self.ax['overlays'].text(0.055, 0.72-(self.num_plots-1)*.12, filename[:34], color=color2)
             self.plots.append(newt)
+        for i in range(0, 3):
+            if not self.ax[self.image_axs[i]].get_visible():
+                self.ax[self.image_axs[i]].set_visible(True)
+                self.ax[self.image_axs[i]].set_title(self.image_axs[i+3], fontdict={'fontsize': mpl.rcParams['axes.titlesize'], 'fontweight': mpl.rcParams['axes.titleweight'], 'color': color2, 'verticalalignment': 'baseline', 'horizontalalignment': 'center'})
+                self.ax[self.image_axs[i]].set_xticks([])
+                self.ax[self.image_axs[i]].set_yticks([])
+                img_arr = cv2.imread(path)
+                self.ax[self.image_axs[i]].imshow(img_arr)
+                plt.draw()
+                break
+
 
     def clear_images(self, event):
         self.num_plots = 0
@@ -224,6 +259,8 @@ class InterHist:
         for txt in self.plots:
             txt.set_visible(False)
         self.create_main_hist()
+        for i in range(0, 3):
+            self.ax[self.image_axs[i]].set_visible(False)
 
     def update_plot_2(self, calc_range):
         dict, ans = self.calculator2.pixels_on_range(calc_range)
