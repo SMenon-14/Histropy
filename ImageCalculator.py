@@ -1,15 +1,7 @@
 from tabulate import tabulate
 import PIL
-import urllib.request
 import numpy as np
-import matplotlib.pyplot as plt
 import math
-import os
-from matplotlib import cm
-import random
-import matplotlib.colors as mcolors
-import tkinter as tk 
-from tkinter import filedialog 
 
 class ImageCalculator:
     def __init__(self, file_path):

@@ -1,22 +1,14 @@
 from tabulate import tabulate
 import numpy as np
 import easygui
-import PIL
-import cv2
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
 from matplotlib.widgets import RadioButtons
-from matplotlib.axes import Axes
 from matplotlib.widgets import TextBox
-from matplotlib.backend_bases import MouseButton
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from ImageCalculator import ImageCalculator
 from matplotlib.widgets import Button
-from matplotlib.offsetbox import (OffsetImage, AnnotationBbox)
 import matplotlib.image as mpimg
-import matplotlib.patches as patches
-from matplotlib.backend_tools import ToolBase, ToolToggleBase
 
 class InterHist:
     def __init__(self, file_path):
