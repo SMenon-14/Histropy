@@ -138,5 +138,7 @@ class ImageCalculator:
     # Method to calculate the rms contrast of a range of pixels
     def get_rms_contrast(self, calculation_range=None):
         stddev = self.__get_std_dev(calculation_range)
-        return stddev/255
-    
+        if self.mode==8:
+            return stddev/255
+        else:
+            return stddev/65535
