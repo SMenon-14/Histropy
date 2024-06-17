@@ -3,7 +3,6 @@ import easygui
 
 # 1. Prompt user to select image
 
-
 path = easygui.fileopenbox()
-ih = InterHist(path)
+ih = InterHist(path, 1)
 

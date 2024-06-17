@@ -1,5 +1,6 @@
 from tabulate import tabulate
 import numpy as np
+import math
 import easygui
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -11,9 +12,9 @@ from matplotlib.widgets import Button
 import matplotlib.image as mpimg
 
 class InterHist:
-    def __init__(self, file_path):
+    def __init__(self, file_path, bin_range):
         self.fpath = file_path
-        self.image_calculator = ImageCalculator(file_path)
+        self.image_calculator = ImageCalculator(file_path, bin_range)
         #self.im = image.imread(file_path)
         #Creating subplot mosaic
         self.fig, self.ax = plt.subplot_mosaic(
@@ -97,14 +98,15 @@ class InterHist:
     
     def create_main_hist(self):
         #Creating Main Histogram
-        data = self.image_calculator.pixel_dict
+        data = self.image_calculator.display_dict
         color = (self.__color_list[0][0], # redness
          self.__color_list[0][1], # greenness
          self.__color_list[0][2], # blueness
          1 # transparency
          )
         l = self.ax['main'].bar(list(data.keys()), data.values(), color=color, width=1, label='main')
-        self.ax['main'].set_xlim(-10, 255+10)
+        buffer = pow(10, (math.log(self.image_calculator.mode, 10)-1))
+        self.ax['main'].set_xlim(-1*buffer, pow(2, self.image_calculator.mode)+buffer)
         xpos=np.arange(275)
 
         #Setting Plot Y-Axis Scale

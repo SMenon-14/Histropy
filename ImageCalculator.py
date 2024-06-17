@@ -2,15 +2,22 @@ from tabulate import tabulate
 import PIL
 import numpy as np
 import math
+from collections import defaultdict
 
 class ImageCalculator:
-    def __init__(self, file_path):
+    def __init__(self, file_path, bin_range):
+        self.bin_range=bin_range
         self.filename = file_path.rsplit('/', 1)[-1]
         self.image = PIL.Image.open(file_path)
-        image_transformed = self.__preprocessing()
+        self.mode = 8
+        if(self.image.mode == "I;16"):
+            image_transformed = self.image
+            self.mode = 16
+        else:
+            image_transformed = self.__preprocessing()
         self.pixels = image_transformed.load()
         self.height, self.width = image_transformed.size
-        self.__get_histogram_data(self.height, self.width)
+        self.__get_histogram_data(self.height, self.width, self.mode)
         self.y_limit = max(self.pixel_dict.values())
 
     # Method to convert image file into grayscale if the image is not already grayscale
@@ -26,12 +33,26 @@ class ImageCalculator:
         total_pixels = sum(new_pix.values())
         return new_pix, total_pixels
     
-    #Create histogram dictionary from image pixel data
-    def __get_histogram_data(self, h, w):
+    #Create histogram dictionary from image pixel data for 16 bit
+    def __bin_hist_data(self, bin_size):
+        # Initialize a dictionary for the bins
+        binned_dict = defaultdict(int)
+        # Iterate through the original dictionary
+        for key, value in self.pixel_dict.items():
+            # Determine the bin for the current key
+            bin_key = (key // bin_size) * bin_size
+            # Add the value to the appropriate bin
+            binned_dict[bin_key] += value
+
+        # Convert the defaultdict to a regular dictionary
+        self.display_dict = dict(binned_dict)
+
+    #Create histogram dictionary from image pixel data for 8 bit
+    def __get_histogram_data(self, h, w, mode):
         pixel_vals = {}
         sum = 0
-        maximum = -256
-        minimum = 256
+        maximum = -1*pow(2, mode)
+        minimum = pow(2, mode)
         pix = self.pixels
         for i in range(0, h):
             for j in range(0, w):
@@ -52,7 +73,10 @@ class ImageCalculator:
         self.min = minimum
         self.max = maximum
         self.pixel_dict = sorted_pixel_vals
+        self.display_dict = sorted_pixel_vals
         self.mean = sum/(h*w)
+        if(mode==16):
+            self.__bin_hist_data(self.bin_range)
 
     #Method to calculate intensity on a range
     def calculate_total_intensity(self, calculation_range=None):
