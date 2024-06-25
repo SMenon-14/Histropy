@@ -242,7 +242,7 @@ class InterHist:
         self.num_plots+=1
         path = easygui.fileopenbox()
         filename = path.rsplit('/', 1)[-1]
-        im = ImageCalculator(path)
+        im = ImageCalculator(path, 1)
         data = im.pixel_dict
         color = (self.__color_list[self.num_plots][0], # redness
          self.__color_list[self.num_plots][1], # greenness
@@ -256,7 +256,7 @@ class InterHist:
          )
         self.ax['main'].bar(list(data.keys()), data.values(), antialiased=False, color=color, width=1)
         if(self.num_plots==1):
-            self.calculator2 = ImageCalculator(path)
+            self.calculator2 = ImageCalculator(path, 1)
             newt = self.ax['overlays'].text(0.055, 0.72, filename[:34], color=color2)
             self.nump2 = self.ax['overlays'].text(0.055, 0.6, "A", color=color2)
             self.percentp2 = self.ax['overlays'].text(0.055, 0.5, "B", color=color2)
