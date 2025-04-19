@@ -1,8 +1,8 @@
 from InterHist import InterHist
 import easygui
 
-# 1. Prompt user to select image
-
+# 1. Prompts user to select image.
 path = easygui.fileopenbox()
-ih = InterHist(path, 1)
+# 2. Opens InterHist Object, running preliminary calculations and opening the Histropy window.
+ih = InterHist(path)
 
