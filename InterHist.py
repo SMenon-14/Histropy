@@ -11,10 +11,11 @@ from matplotlib.widgets import Button
 import matplotlib.image as mpimg
 
 class InterHist:
+    mpl.use('TkAgg')
     """
         The InterHist class uses MatPlotLib's widgets to create an interactive histogram workspace for Histropy.
     """
-    def __init__(self, file_path):
+    def __init__(self, file_path, lbound=0, rbound=255, overlay_image_list=[]):
         """
         Initializes an InterHist object, defines attributes, and sets up the display
 
@@ -64,7 +65,7 @@ class InterHist:
         ]
         self.num_plots = 0
         #Set up subplots and on-screen text
-        self.extract_labels()
+        self.extract_labels(lbound, rbound)
         self.create_main_hist()
         self.create_image_subplot()
         self.create_scale_subplot()
@@ -78,17 +79,25 @@ class InterHist:
         self.rectangle = self.ax['main'].fill_betweenx(self.ax['main'].get_ylim(), self.left_bound, self.right_bound, color='blue', alpha=0.2, linewidth=0)
         self.submit_lower(self.left_bound)
 
+        #Add images from overlay list
+        for im in overlay_image_list:
+            self.add_image_from_fpath(im)
+
         #Display plot space
         plt.ion()
         plt.show(block=True)
 
-    def extract_labels(self):
+    def extract_labels(self, lbound=0, rbound=255):
         """
             Extracts the metadata from the ImageCalculator and assigns them to InterHist attributes.
         """
         #Extracting Labels from Metadata
-        self.left_bound = self.image_calculator.min
-        self.right_bound = self.image_calculator.max
+        if(lbound == 0 and rbound == 255):
+            self.left_bound = self.image_calculator.min
+            self.right_bound = self.image_calculator.max
+        else:
+            self.left_bound = lbound
+            self.right_bound = rbound
         self.last_clicked = self.right_bound
         self.intensity_sum = self.image_calculator.calculate_total_intensity(calculation_range=(0, 256))
         self.size = self.image_calculator.height*self.image_calculator.width
@@ -151,7 +160,7 @@ class InterHist:
         self.radio.on_clicked(self.reset_scale)
 
         #Creating y-limit input
-        self.text3 = TextBox(inset_axes_1, 'Y-Axis Limit', initial=self.image_calculator.y_limit, label_pad=0.09)
+        self.text3 = TextBox(inset_axes_1, 'Y-Axis Limit', initial=int(self.ax['main'].get_ylim()[1]), label_pad=0.09)
         self.text3.on_submit(self.submit_ylim)
 
     def create_range_subplot(self):
@@ -219,6 +228,9 @@ class InterHist:
         if(scl=='log base 10'):
             scl = 'log'
         self.ax['main'].set_yscale(scl)
+        self.ax['main'].relim()
+        self.ax['main'].autoscale()
+        self.submit_ylim('')
         plt.draw()
 
     def submit_lower(self, text):
@@ -278,9 +290,11 @@ class InterHist:
         """
         if(text==''):
             self.ax['main'].autoscale()
-            self.text3.set_val(self.image_calculator.y_limit)
+            self.text3.set_val(int(round(self.ax['main'].get_ylim()[1])))
         else:
-            self.ax['main'].set_ylim(0, int(text))
+            self.ax['main'].set_ylim(0, int(round(float(text))))
+            self.text3.set_val(text)
+        self.add_rectangle()
 
     def on_click(self, event):
         """
@@ -310,6 +324,7 @@ class InterHist:
         self.rectangle = self.ax['main'].fill_betweenx((0.0, i), self.left_bound, self.right_bound, color='blue', alpha=0.2, linewidth=0)
         plt.draw()    
 
+
     def add_image(self, event):
         """
         Handles request to add new image to overlay, called upon "Add Image" button being pressed in the overlays subplot.
@@ -338,6 +353,9 @@ class InterHist:
          )
         #Plot overlaid histogram
         self.ax['main'].bar(list(data.keys()), data.values(), antialiased=False, color=color, width=1)
+        #Rest y-limit
+        self.submit_ylim(str(round(self.ax['main'].get_ylim()[1])))
+        self.add_rectangle()
         if(self.num_plots==1):
             #Set up a calculator to display image 2's information
             self.calculator2 = ImageCalculator(path)
@@ -349,6 +367,7 @@ class InterHist:
             self.conp2 = self.ax['overlays'].text(0.055, 0.2, "E", color=color2)
             self.inp2 = self.ax['overlays'].text(0.055, 0.1, "F", color=color2)
             self.plots = [newt, self.nump2, self.percentp2, self.ep2, self.meap2, self.conp2, self.inp2]
+            self.size2 = self.calculator2.height*self.calculator2.width
             calc_range = range(self.left_bound, self.right_bound+1)
             self.update_plot(calc_range)
             plt.draw()
@@ -378,6 +397,70 @@ class InterHist:
                 plt.draw()
                 break
 
+    def add_image_from_fpath(self, path):
+        #Increase number of plots
+        self.num_plots+=1
+        #Create a new imagecalculator object for the new image
+        filename = path.rsplit('/', 1)[-1]
+        im = ImageCalculator(path)
+        data = im.pixel_dict
+        #Set up color of the new histogram
+        color = (self.__color_list[self.num_plots][0], # redness
+         self.__color_list[self.num_plots][1], # greenness
+         self.__color_list[self.num_plots][2], # blueness
+         0.6 # transparency
+         )
+        #Set up color of the new plot text & other values
+        color2 = (self.__color_list[self.num_plots][0], # redness
+         self.__color_list[self.num_plots][1], # greenness
+         self.__color_list[self.num_plots][2], # blueness
+         1 # transparency
+         )
+        #Plot overlaid histogram
+        self.ax['main'].bar(list(data.keys()), data.values(), antialiased=False, color=color, width=1)
+        #Rest y-limit
+        self.submit_ylim(str(round(self.ax['main'].get_ylim()[1])))
+        self.add_rectangle()
+        if(self.num_plots==1):
+            #Set up a calculator to display image 2's information
+            self.calculator2 = ImageCalculator(path)
+            newt = self.ax['overlays'].text(0.055, 0.72, filename[:34], color=color2)
+            self.nump2 = self.ax['overlays'].text(0.055, 0.6, "A", color=color2)
+            self.percentp2 = self.ax['overlays'].text(0.055, 0.5, "B", color=color2)
+            self.ep2 = self.ax['overlays'].text(0.055, 0.4, "C", color=color2)
+            self.meap2 = self.ax['overlays'].text(0.055, 0.3, "D", color=color2)
+            self.conp2 = self.ax['overlays'].text(0.055, 0.2, "E", color=color2)
+            self.inp2 = self.ax['overlays'].text(0.055, 0.1, "F", color=color2)
+            self.plots = [newt, self.nump2, self.percentp2, self.ep2, self.meap2, self.conp2, self.inp2]
+            self.size2 = self.calculator2.height*self.calculator2.width
+            calc_range = range(self.left_bound, self.right_bound+1)
+            self.update_plot(calc_range)
+            plt.draw()
+        else:
+            #Clear old imagecalculator information and have overlays only display the file names
+            self.nump2.set_visible(False)
+            self.percentp2.set_visible(False)
+            self.ep2.set_visible(False)
+            self.meap2.set_visible(False)
+            self.conp2.set_visible(False)
+            self.inp2.set_visible(False)
+            newt = self.ax['overlays'].text(0.055, 0.72-(self.num_plots-1)*.12, filename[:34], color=color2)
+            self.plots.append(newt)
+        #Set up display thumbnails for the first 3 images that are overlaid
+        for i in range(0, 3):
+            if not self.ax[self.image_axs[i]].get_visible():
+                self.ax[self.image_axs[i]].set_visible(True)
+                self.ax[self.image_axs[i]].set_title(self.image_axs[i+3], fontdict={'fontsize': mpl.rcParams['axes.titlesize'], 'fontweight': mpl.rcParams['axes.titleweight'], 'color': color2, 'verticalalignment': 'baseline', 'horizontalalignment': 'center'})
+                self.ax[self.image_axs[i]].set_xticks([])
+                self.ax[self.image_axs[i]].set_yticks([])
+                img_arr = mpimg.imread(path)
+                is_grayscale = len(img_arr.shape) < 3 or img_arr.shape[2] == 1
+                if is_grayscale:
+                    self.ax[self.image_axs[i]].imshow(img_arr, cmap='gray')
+                else:
+                    self.ax[self.image_axs[i]].imshow(img_arr, cmap=None)
+                plt.draw()
+                break
 
     def clear_images(self, event):
         """
@@ -393,17 +476,21 @@ class InterHist:
         self.create_main_hist()
         for i in range(0, 3):
             self.ax[self.image_axs[i]].set_visible(False)
+        #Redraw bound lines
+        self.lower_bound_line = self.ax['main'].axvline(x=self.left_bound, color='b', linestyle='--')
+        self.upper_bound_line = self.ax['main'].axvline(x=self.right_bound, color='c', linestyle='--')
+        self.rectangle = self.ax['main'].fill_betweenx(self.ax['main'].get_ylim(), self.left_bound, self.right_bound, color='blue', alpha=0.2, linewidth=0)
 
     def update_plot(self, calc_range):
         """
-        Update's plot values for the calculation subplot based on new values of range.
+        Update's plot values for the overlaid calculation subplot based on new values of range.
 
         Args:
             calc_range (range): The new range of the image to calculate over based on inputted bounds.
         """
         dict, ans = self.calculator2.pixels_on_range(calc_range)
         self.nump2.set_text(str(f'# pixels on range: {ans}'))
-        self.percentp2.set_text(str(f'% of all pixels on range: {round(100*ans/self.size, 7)}'))
+        self.percentp2.set_text(str(f'% of all pixels on range: {round(100*ans/self.size2, 7)}'))
         self.ep2.set_text(str(f'Entropy on range: {round(self.calculator2.calculate_entropy_value(calc_range), 7)}'))
         self.meap2.set_text(str(f'Mean on range: {round(self.calculator2.calculate_mean(calc_range), 7)}'))
         self.conp2.set_text(str(f'RMS contrast on range: {round(self.calculator2.get_rms_contrast(calc_range), 7)}'))
